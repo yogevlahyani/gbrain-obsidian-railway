@@ -98,10 +98,27 @@ sync_content() {
       --exclude='.git' --exclude='.obsidian' --exclude='.trash' \
       -cf - . | tar -C "${QUARTZ_DIR}/content" -xf -
   fi
+  # Quartz homepage is content/index.md only — README.md does not count.
+  if [ ! -f "${QUARTZ_DIR}/content/index.md" ]; then
+    log "no index.md in vault; writing a minimal homepage"
+    cat >"${QUARTZ_DIR}/content/index.md" <<'EOF'
+---
+title: Home
+---
+
+# Brain
+
+Add an `index.md` at the root of your vault for a real homepage. Until then, browse notes via search or the explorer.
+EOF
+  fi
 }
 
 set_base_url() {
-  local base="${QUARTZ_BASE_URL:-${GBRAIN_PUBLIC_URL:-}}"
+  # Prefer QUARTZ_BASE_URL (should be host/notes). Else derive from GBRAIN_PUBLIC_URL + /notes.
+  local base="${QUARTZ_BASE_URL:-}"
+  if [ -z "$base" ] && [ -n "${GBRAIN_PUBLIC_URL:-}" ]; then
+    base="${GBRAIN_PUBLIC_URL%/}/notes"
+  fi
   base="${base#https://}"
   base="${base#http://}"
   base="${base%/}"
