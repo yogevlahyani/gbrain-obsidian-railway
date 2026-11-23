@@ -2,7 +2,7 @@
 
 Self-hosted [GBrain](https://github.com/garrytan/gbrain) memory server with a browser-streamed Obsidian vault. Four services; markdown lives in a **private GitHub repo** that both sides sync through git (Railway volumes are not shareable, and containers are unprivileged).
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/HdOnnp)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/gbrain-obsidian)
 
 ```
 Claude / agents ──► Caddy ──► GBrain (Postgres + pgvector)
