@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Clone/pull the brain git vault, build Quartz, serve public/ on $PORT.
+# Bind $PORT immediately (Railway private DNS), then clone/build Quartz in the background.
 set -euo pipefail
 
 log() { echo "[quartz] $*"; }
@@ -10,6 +10,7 @@ log() { echo "[quartz] $*"; }
 DATA="${QUARTZ_DATA:-/data}"
 VAULT="${DATA}/vault"
 QUARTZ_DIR="${DATA}/quartz"
+PUBLIC="${QUARTZ_DIR}/public"
 export GIT_ASKPASS=/usr/local/bin/git-askpass.sh
 export GIT_TERMINAL_PROMPT=0
 
@@ -18,7 +19,6 @@ if [ -z "${BRAIN_REPO_URL:-}" ]; then
   exit 1
 fi
 
-# file:// remotes (local compose) don't need a token.
 case "${BRAIN_REPO_URL}" in
   file://*)
     git config --system protocol.file.allow always || true
@@ -31,6 +31,22 @@ case "${BRAIN_REPO_URL}" in
     ;;
 esac
 
+write_placeholder() {
+  mkdir -p "$PUBLIC"
+  if [ ! -f "${PUBLIC}/index.html" ]; then
+    cat >"${PUBLIC}/index.html" <<'EOF'
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Building…</title>
+<meta http-equiv="refresh" content="15">
+<style>body{font-family:system-ui,sans-serif;max-width:36rem;margin:4rem auto;padding:0 1rem;line-height:1.5}</style>
+</head><body>
+<h1>Building Quartz</h1>
+<p>Cloning the vault and generating the site. This page refreshes automatically.</p>
+</body></html>
+EOF
+  fi
+}
+
 sync_vault() {
   if [ ! -d "${VAULT}/.git" ]; then
     log "cloning ${BRAIN_REPO_URL} -> ${VAULT}"
@@ -41,7 +57,6 @@ sync_vault() {
     log "pulling vault"
     git -C "${VAULT}" remote set-url origin "${BRAIN_REPO_URL}" || true
     git -C "${VAULT}" fetch --depth 1 origin
-    # Prefer origin/main, then origin/master, then whatever HEAD is.
     branch="$(git -C "${VAULT}" rev-parse --abbrev-ref origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)"
     if [ -z "$branch" ] || [ "$branch" = "HEAD" ]; then
       if git -C "${VAULT}" rev-parse --verify origin/main >/dev/null 2>&1; then
@@ -60,16 +75,18 @@ ensure_quartz() {
   if [ ! -f "${QUARTZ_DIR}/package.json" ]; then
     log "cloning Quartz ${QUARTZ_GIT_REF}"
     rm -rf "${QUARTZ_DIR}"
-    git clone --depth 1 --branch "${QUARTZ_GIT_REF}" https://github.com/jackyzha0/quartz.git "${QUARTZ_DIR}"
+    if ! git clone --depth 1 --branch "${QUARTZ_GIT_REF}" https://github.com/jackyzha0/quartz.git "${QUARTZ_DIR}"; then
+      log "branch ${QUARTZ_GIT_REF} missing; cloning default branch"
+      rm -rf "${QUARTZ_DIR}"
+      git clone --depth 1 https://github.com/jackyzha0/quartz.git "${QUARTZ_DIR}"
+    fi
     (cd "${QUARTZ_DIR}" && npm ci)
   fi
 }
 
 sync_content() {
   mkdir -p "${QUARTZ_DIR}/content"
-  # Replace content/ with vault markdown (keep quartz's own non-content bits).
   find "${QUARTZ_DIR}/content" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-  # Copy vault files; skip VCS / Obsidian metadata (not published).
   if command -v rsync >/dev/null 2>&1; then
     rsync -a --delete \
       --exclude '.git/' \
@@ -84,7 +101,6 @@ sync_content() {
 }
 
 set_base_url() {
-  # Quartz v5: quartz.config.ts or .yaml — patch baseUrl when QUARTZ_BASE_URL / PUBLIC_URL set.
   local base="${QUARTZ_BASE_URL:-${GBRAIN_PUBLIC_URL:-}}"
   base="${base#https://}"
   base="${base#http://}"
@@ -94,7 +110,6 @@ set_base_url() {
   for cfg in "${QUARTZ_DIR}/quartz.config.ts" "${QUARTZ_DIR}/quartz.config.yaml" "${QUARTZ_DIR}/quartz.config.yml"; do
     [ -f "$cfg" ] || continue
     if grep -q 'baseUrl' "$cfg"; then
-      # Replace existing baseUrl string value.
       sed -i -E "s|(baseUrl[[:space:]]*[:=][[:space:]]*[\"'])[^\"']*([\"'])|\1${base}\2|" "$cfg" || true
       log "baseUrl -> ${base} (${cfg##*/})"
       return 0
@@ -113,22 +128,28 @@ build_site() {
     npx quartz plugin install 2>/dev/null || true
     npx quartz build
   )
-  log "build ok -> ${QUARTZ_DIR}/public"
+  log "build ok -> ${PUBLIC}"
 }
 
 mkdir -p "$DATA"
-build_site
+write_placeholder
 
-# Serve + periodic rebuild. Caddy stays in foreground via wait.
+# Listen immediately so Railway private DNS (quartz.railway.internal) exists for Caddy.
 export PORT
 caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &
 caddy_pid=$!
 
-while true; do
-  sleep "${QUARTZ_REBUILD_INTERVAL}"
+(
+  # First build, then periodic rebuilds. Failures keep the last good (or placeholder) public/.
   if ! build_site; then
-    log "rebuild failed; keeping previous public/"
+    log "initial build failed; serving placeholder until the next interval"
   fi
-done &
+  while true; do
+    sleep "${QUARTZ_REBUILD_INTERVAL}"
+    if ! build_site; then
+      log "rebuild failed; keeping previous public/"
+    fi
+  done
+) &
 
 wait "$caddy_pid"
