@@ -1,4 +1,5 @@
-FROM lscr.io/linuxserver/obsidian:v1.5.12-ls9
+# ghcr.io: lscr.io rate-limits Railway builders (429 toomanyrequests).
+FROM ghcr.io/linuxserver/obsidian:v1.5.12-ls9
 
 USER root
 RUN apt-get update \
