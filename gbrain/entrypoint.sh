@@ -19,6 +19,20 @@ require GBRAIN_ADMIN_BOOTSTRAP_TOKEN
 require BRAIN_REPO_URL
 require GITHUB_TOKEN
 
+# Custom pgvector on Railway private network has no TLS; GBrain defaults to requiring it
+# for non-local hosts. Append sslmode=disable unless the URL already sets sslmode.
+case "$GBRAIN_DATABASE_URL" in
+  *sslmode=*) ;;
+  *)
+    case "$GBRAIN_DATABASE_URL" in
+      *\?*) GBRAIN_DATABASE_URL="${GBRAIN_DATABASE_URL}&sslmode=disable" ;;
+      *)    GBRAIN_DATABASE_URL="${GBRAIN_DATABASE_URL}?sslmode=disable" ;;
+    esac
+    export GBRAIN_DATABASE_URL
+    log "appended sslmode=disable to GBRAIN_DATABASE_URL (private Postgres without TLS)"
+    ;;
+esac
+
 export GIT_ASKPASS=/usr/local/bin/git-askpass.sh
 export GIT_TERMINAL_PROMPT=0
 

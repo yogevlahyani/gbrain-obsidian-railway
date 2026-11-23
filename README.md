@@ -53,7 +53,7 @@ After deploy, set `BRAIN_REPO_URL` and `GITHUB_TOKEN` on **gbrain** (Obsidian re
 
 | Variable | Value |
 |---|---|
-| `GBRAIN_DATABASE_URL` | `${{postgres.DATABASE_URL}}` (or build from PG user/password/host/db) |
+| `GBRAIN_DATABASE_URL` | `${{postgres.DATABASE_URL}}` (template URL includes `?sslmode=disable` for private pgvector) |
 | `GBRAIN_ADMIN_BOOTSTRAP_TOKEN` | `${{secret(48, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")}}` |
 | `GBRAIN_HTTP_TRUST_PROXY` | `1` |
 | `GBRAIN_PUBLIC_URL` | optional; `https://…` for OAuth/MCP (Railway caddy URL is fine) |
