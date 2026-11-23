@@ -1,4 +1,4 @@
-# Local test stack mirroring the four Railway services.
+# Local test stack mirroring the three Railway services.
 # A bare git repo on a shared volume stands in for the private GitHub brain repo.
 # (Railway cannot share volumes between services; production uses GitHub over HTTPS.)
 
@@ -76,27 +76,6 @@ services:
       retries: 30
       start_period: 40s
 
-  quartz:
-    build:
-      context: .
-      dockerfile: quartz/Dockerfile
-    depends_on:
-      git-init:
-        condition: service_completed_successfully
-      gbrain:
-        condition: service_healthy
-    environment:
-      BRAIN_REPO_URL: file:///repos/brain.git
-      GITHUB_TOKEN: local-unused-token
-      QUARTZ_BASE_URL: 127.0.0.1:18080/notes
-      QUARTZ_REBUILD_INTERVAL: "60"
-      PORT: "8080"
-    volumes:
-      - quartz_data:/data
-      - git_data:/repos
-    expose:
-      - "8080"
-
   caddy:
     build:
       context: .
@@ -104,12 +83,9 @@ services:
     depends_on:
       gbrain:
         condition: service_healthy
-      quartz:
-        condition: service_started
     environment:
       PORT: "18080"
       ORIGIN_SECRET: local-origin-secret
-      QUARTZ_UPSTREAM: quartz:8080
       GBRAIN_UPSTREAM: gbrain:3131
     ports:
       - "18080:18080"
@@ -117,5 +93,4 @@ services:
 volumes:
   pg_data:
   gbrain_data:
-  quartz_data:
   git_data:

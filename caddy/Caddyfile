@@ -14,22 +14,7 @@
 		# Edge health for Railway / probes (not the GBrain /health JSON).
 		respond /healthz 200
 
-		# Published vault (Quartz). Exact `/` goes to the site; GBrain keeps /admin, /mcp, …
-		redir / /notes/ 302
-		redir /notes /notes/ 308
-
-		# Strip /notes so Quartz (served at its own /) sees normal paths.
-		# dial_timeout: quartz may restart during rebuilds; avoid instant 502 storms.
-		handle_path /notes* {
-			reverse_proxy {$QUARTZ_UPSTREAM} {
-				transport http {
-					dial_timeout 5s
-					response_header_timeout 60s
-				}
-			}
-		}
-
-		# GBrain: /admin, /mcp, /authorize, /token, /register, /revoke, /.well-known/*, /health.
+		# Everything else → GBrain (/admin, /mcp, OAuth, /health, …).
 		reverse_proxy {$GBRAIN_UPSTREAM}
 	}
 }
