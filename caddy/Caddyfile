@@ -11,25 +11,15 @@
 		@blocked expression `{env.ORIGIN_SECRET} != "" && {http.request.header.X-Origin-Secret} != {env.ORIGIN_SECRET}`
 		respond @blocked 403
 
-		# Bare Railway URL: GBrain has no `/` handler.
-		redir / /admin/ 302
-
-		# /obsidian (no slash) makes relative iframe srcs resolve to /vnc and /files → 404.
-		redir /obsidian /obsidian/ 308
-
-		# KasmVNC websocket on :6901. Strip /obsidian so Xvnc sees /websockify
-		# (browsers send Origin + Sec-WebSocket-Protocol; bare curls 404 without them).
-		@obs_ws path /obsidian/websockify /obsidian/websockify/*
-		handle @obs_ws {
-			uri strip_prefix /obsidian
-			reverse_proxy {$OBSIDIAN_VNC_UPSTREAM}
+		# GBrain API / admin / MCP (not the public notes site).
+		@gbrain path /admin* /mcp* /authorize* /token* /register* /revoke* /.well-known* /health /health/*
+		handle @gbrain {
+			reverse_proxy {$GBRAIN_UPSTREAM}
 		}
 
-		# Obsidian kclient UI (HTTP + socket.io) via nginx :3000.
-		reverse_proxy /obsidian* {$OBSIDIAN_UPSTREAM}
-
-		# GBrain owns the root: /admin, /mcp, /authorize, /token, /register,
-		# /revoke, /.well-known/*, /health.
-		reverse_proxy {$GBRAIN_UPSTREAM}
+		# Quartz static site (published vault) is the default.
+		handle {
+			reverse_proxy {$QUARTZ_UPSTREAM}
+		}
 	}
 }

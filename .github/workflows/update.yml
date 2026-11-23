@@ -29,28 +29,6 @@ jobs:
             echo "GBrain already at $current"
           fi
 
-      - name: Bump linuxserver/obsidian tag
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          file=obsidian/Dockerfile
-          current="$(sed -n 's|^FROM lscr.io/linuxserver/obsidian:\(.*\)$|\1|p' "$file" | head -1)"
-          # Prefer newest non-arch-specific version-* or v*-ls* tag from GHCR/hub via GitHub releases tags.
-          latest="$(gh api repos/linuxserver/docker-obsidian/tags --paginate --jq '.[].name' \
-            | grep -E '^v[0-9].*-ls[0-9]+$' \
-            | head -1)"
-          if [ -z "$latest" ]; then
-            echo "Could not resolve obsidian tag; leaving $current"
-            exit 0
-          fi
-          if [ "$current" != "$latest" ]; then
-            sed -i "s|^FROM lscr.io/linuxserver/obsidian:.*|FROM lscr.io/linuxserver/obsidian:${latest}|" "$file"
-            echo "Updated obsidian: $current -> $latest"
-          else
-            echo "Obsidian already at $current"
-          fi
-
       - name: Bump caddy tag
         run: |
           set -euo pipefail
@@ -87,6 +65,6 @@ for r in d.get("results",[]):
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add gbrain/VERSION obsidian/Dockerfile caddy/Dockerfile
+          git add gbrain/VERSION caddy/Dockerfile quartz/Dockerfile
           git commit -m "chore: bump pinned image/binary versions"
           git push

@@ -1,4 +1,4 @@
-# Local test stack mirroring the four Railway services.
+# Local test stack mirroring the Railway services.
 # A bare git repo on a shared volume stands in for the private GitHub brain repo.
 # (Railway cannot share volumes between services; production uses GitHub over HTTPS.)
 
@@ -76,33 +76,26 @@ services:
       retries: 30
       start_period: 40s
 
-  obsidian:
+  quartz:
     build:
       context: .
-      dockerfile: obsidian/Dockerfile
+      dockerfile: quartz/Dockerfile
     depends_on:
       git-init:
         condition: service_completed_successfully
       gbrain:
         condition: service_healthy
     environment:
-      PUID: "1000"
-      PGID: "1000"
-      TZ: UTC
-      CUSTOM_USER: obsidian
-      PASSWORD: obsidian
-      SUBFOLDER: /obsidian/
       BRAIN_REPO_URL: file:///repos/brain.git
       GITHUB_TOKEN: local-unused-token
-      GIT_AUTHOR_NAME: Obsidian Local
-      GIT_AUTHOR_EMAIL: obsidian@localhost
+      PORT: "8080"
+      QUARTZ_REBUILD_INTERVAL: "60"
+      QUARTZ_BASE_URL: ""
     volumes:
-      - obsidian_data:/config
+      - quartz_data:/data
       - git_data:/repos
-    shm_size: "1gb"
     expose:
-      - "3000"
-      - "6901"
+      - "8080"
 
   caddy:
     build:
@@ -111,13 +104,12 @@ services:
     depends_on:
       gbrain:
         condition: service_healthy
-      obsidian:
+      quartz:
         condition: service_started
     environment:
       PORT: "18080"
       ORIGIN_SECRET: local-origin-secret
-      OBSIDIAN_UPSTREAM: obsidian:3000
-      OBSIDIAN_VNC_UPSTREAM: obsidian:6901
+      QUARTZ_UPSTREAM: quartz:8080
       GBRAIN_UPSTREAM: gbrain:3131
     ports:
       - "18080:18080"
@@ -125,5 +117,5 @@ services:
 volumes:
   pg_data:
   gbrain_data:
-  obsidian_data:
+  quartz_data:
   git_data:
