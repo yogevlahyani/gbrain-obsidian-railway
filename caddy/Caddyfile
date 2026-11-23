@@ -11,6 +11,9 @@
 		@blocked expression `{env.ORIGIN_SECRET} != "" && {http.request.header.X-Origin-Secret} != {env.ORIGIN_SECRET}`
 		respond @blocked 403
 
+		# Bare Railway URL: GBrain has no `/` handler.
+		redir / /admin/ 302
+
 		# Obsidian desktop stream (HTTP + websockets). Caddy reverse_proxy
 		# upgrades websockets by default.
 		reverse_proxy /obsidian* {$OBSIDIAN_UPSTREAM}
