@@ -38,7 +38,7 @@ Railway gives you private networking between the four services, volumes for Post
 2. A **fine-grained GitHub PAT** with **Contents: Read and write** on that repo only.
 3. A Railway account.
 
-After deploy, set `BRAIN_REPO_URL`, `GITHUB_TOKEN`, and `GBRAIN_PUBLIC_URL` on **gbrain** (and point Obsidian at the same repo/PAT via references). Put a custom domain on **caddy** only.
+After deploy, set `BRAIN_REPO_URL` and `GITHUB_TOKEN` on **gbrain** (Obsidian references the same). Optional: `GBRAIN_PUBLIC_URL` for OAuth/MCP — Railway’s caddy `*.up.railway.app` URL works until you add a custom domain.
 
 ### Service variables
 
@@ -56,7 +56,7 @@ After deploy, set `BRAIN_REPO_URL`, `GITHUB_TOKEN`, and `GBRAIN_PUBLIC_URL` on *
 | `GBRAIN_DATABASE_URL` | `${{postgres.DATABASE_URL}}` (or build from PG user/password/host/db) |
 | `GBRAIN_ADMIN_BOOTSTRAP_TOKEN` | `${{secret(48, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")}}` |
 | `GBRAIN_HTTP_TRUST_PROXY` | `1` |
-| `GBRAIN_PUBLIC_URL` | `https://<your-custom-domain>` (https only; required for OAuth) |
+| `GBRAIN_PUBLIC_URL` | optional; `https://…` for OAuth/MCP (Railway caddy URL is fine) |
 | `BRAIN_REPO_URL` | `https://github.com/<you>/<brain>.git` |
 | `GITHUB_TOKEN` | fine-grained PAT |
 | `GIT_AUTHOR_NAME` | `GBrain` |
