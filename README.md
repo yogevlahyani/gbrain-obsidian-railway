@@ -81,16 +81,18 @@ After deploy, set `BRAIN_REPO_URL` and `GITHUB_TOKEN` on **gbrain** (Obsidian re
 | Variable | Value |
 |---|---|
 | `PORT` | Railway-injected |
-| `ORIGIN_SECRET` | `${{secret(48, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}}` |
+| `ORIGIN_SECRET` | optional. Empty = Railway URL works in a browser. Set only when Cloudflare (or similar) injects `X-Origin-Secret` |
 | `OBSIDIAN_UPSTREAM` | `${{obsidian.RAILWAY_PRIVATE_DOMAIN}}:3000` |
 | `GBRAIN_UPSTREAM` | `${{gbrain.RAILWAY_PRIVATE_DOMAIN}}:3131` |
 
-Healthcheck: only gbrain exposes `/health` (via caddy with the secret header). Do not put a Railway healthcheck on caddy — it will not send `X-Origin-Secret`.
+Only **caddy** should have a public domain. GBrain/Obsidian stay private.
 
-## Cloudflare
+## Cloudflare (optional)
+
+Leave `ORIGIN_SECRET` empty until Cloudflare is in front — otherwise the Railway `*.up.railway.app` URL returns 403 in a normal browser.
 
 1. Proxied DNS CNAME/A to the **caddy** service’s Railway domain.
-2. Transform Rule: add request header `X-Origin-Secret` = your `ORIGIN_SECRET`.
+2. Set `ORIGIN_SECRET` on caddy, then Transform Rule: add request header `X-Origin-Secret` = that value.
 3. WAF allowlist: your VPN IP for the UI; **exempt** `/mcp`, `/authorize`, `/token`, `/register`, `/revoke`, and `/.well-known/` so Claude’s cloud connectors can reach OAuth + MCP.
 4. Once the custom domain works, remove the Railway-generated public domain from caddy.
 

@@ -5,8 +5,11 @@
 
 :{$PORT} {
 	route {
-		@notcf not header X-Origin-Secret {$ORIGIN_SECRET}
-		respond @notcf 403
+		# Optional Cloudflare/origin gate. Only enforced when ORIGIN_SECRET is non-empty.
+		# Railway *.up.railway.app browsers cannot set X-Origin-Secret — leave ORIGIN_SECRET
+		# unset until you put Cloudflare (or similar) in front and inject the header.
+		@blocked expression `{env.ORIGIN_SECRET} != "" && {http.request.header.X-Origin-Secret} != {env.ORIGIN_SECRET}`
+		respond @blocked 403
 
 		# Obsidian desktop stream (HTTP + websockets). Caddy reverse_proxy
 		# upgrades websockets by default.
