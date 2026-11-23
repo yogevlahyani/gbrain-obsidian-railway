@@ -1,6 +1,8 @@
-# GBrain + Obsidian (Railway template)
+# Deploy and Host GBrain + Obsidian on Railway
 
-Self-hosted [GBrain](https://github.com/garrytan/gbrain) memory server with a browser-streamed Obsidian vault on top. Four services in one Railway project; markdown lives in a **private GitHub repo** that both sides sync through git (Railway volumes are not shareable, and containers are unprivileged).
+Self-hosted [GBrain](https://github.com/garrytan/gbrain) memory server with a browser-streamed Obsidian vault. Four services; markdown lives in a **private GitHub repo** that both sides sync through git (Railway volumes are not shareable, and containers are unprivileged).
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/HdOnnp)
 
 ```
 Claude / agents ──► Caddy ──► GBrain (Postgres + pgvector)
@@ -14,15 +16,29 @@ Agent writes → GBrain commits/pushes → Obsidian Git plugin pulls.
 Obsidian edits → plugin commits/pushes → GBrain autopilot pulls and re-indexes.  
 Conflicting pushes are parked by GBrain, never force-pushed.
 
-## Prerequisites
+## About Hosting GBrain + Obsidian
+
+This template runs GBrain (HTTP + MCP), Obsidian (browser stream), Caddy (public edge), and Postgres with pgvector. The vault is not stored only on Railway volumes: both GBrain and Obsidian sync a private GitHub repo over HTTPS so edits stay durable and shared.
+
+## Why Deploy GBrain + Obsidian on Railway
+
+Railway gives you private networking between the four services, volumes for Postgres/GBrain/Obsidian state, and a one-click public domain on Caddy. You keep the brain in your own GitHub repo and PAT; no shared volume or privileged containers are required.
+
+## Common Use Cases
+
+- Personal or team second brain with Claude / MCP agents writing into markdown
+- Browser Obsidian for editing the same vault without a desktop sync dance
+- Self-hosted memory for agents with keyword or embedding search (optional Voyage/OpenAI keys)
+
+## Dependencies for GBrain + Obsidian
+
+### Deployment Dependencies
 
 1. An **empty private GitHub repo** for the vault (e.g. `my-brain`).
 2. A **fine-grained GitHub PAT** with **Contents: Read and write** on that repo only.
 3. A Railway account.
 
-## Deploy on Railway
-
-Create a project from this template (or deploy the four services from this repo). Add a Postgres service using image `pgvector/pgvector:pg18` with volume `/var/lib/postgresql/data` and `PGDATA=/var/lib/postgresql/data/pgdata`.
+After deploy, set `BRAIN_REPO_URL`, `GITHUB_TOKEN`, and `GBRAIN_PUBLIC_URL` on **gbrain** (and point Obsidian at the same repo/PAT via references). Put a custom domain on **caddy** only.
 
 ### Service variables
 
@@ -70,10 +86,6 @@ Create a project from this template (or deploy the four services from this repo)
 | `GBRAIN_UPSTREAM` | `gbrain.railway.internal:3131` |
 
 Healthcheck: only gbrain exposes `/health` (via caddy with the secret header). Do not put a Railway healthcheck on caddy — it will not send `X-Origin-Secret`.
-
-### Publish as a Railway template
-
-Deploy once in a fresh project, then use Railway’s **Create template from project**. Custom domains are not included in templates; each deployer adds their own.
 
 ## Cloudflare
 
