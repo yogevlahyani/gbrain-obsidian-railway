@@ -82,7 +82,8 @@ After deploy, set `BRAIN_REPO_URL` and `GITHUB_TOKEN` on **gbrain** (Obsidian re
 |---|---|
 | `PORT` | Railway-injected |
 | `ORIGIN_SECRET` | optional. Empty = Railway URL works in a browser. Set only when Cloudflare (or similar) injects `X-Origin-Secret` |
-| `OBSIDIAN_UPSTREAM` | `${{obsidian.RAILWAY_PRIVATE_DOMAIN}}:3000` |
+| `OBSIDIAN_UPSTREAM` | `${{obsidian.RAILWAY_PRIVATE_DOMAIN}}:3000` (nginx → kclient :6900) |
+| `OBSIDIAN_VNC_UPSTREAM` | `${{obsidian.RAILWAY_PRIVATE_DOMAIN}}:6901` (Xvnc websockify) |
 | `GBRAIN_UPSTREAM` | `${{gbrain.RAILWAY_PRIVATE_DOMAIN}}:3131` |
 
 Only **caddy** should have a public domain. GBrain/Obsidian stay private.

@@ -102,6 +102,7 @@ services:
     shm_size: "1gb"
     expose:
       - "3000"
+      - "6901"
 
   caddy:
     build:
@@ -116,6 +117,7 @@ services:
       PORT: "18080"
       ORIGIN_SECRET: local-origin-secret
       OBSIDIAN_UPSTREAM: obsidian:3000
+      OBSIDIAN_VNC_UPSTREAM: obsidian:6901
       GBRAIN_UPSTREAM: gbrain:3131
     ports:
       - "18080:18080"

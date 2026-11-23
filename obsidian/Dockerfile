@@ -10,5 +10,5 @@ COPY obsidian/git-askpass.sh /usr/local/bin/git-askpass.sh
 COPY obsidian/custom-cont-init.d/ /custom-cont-init.d/
 RUN chmod +x /usr/local/bin/git-askpass.sh /custom-cont-init.d/*
 
-# HTTP GUI; Railway private network reaches this on :3000.
-EXPOSE 3000
+# :3000 nginx (kclient UI). :6901 Xvnc websockify (Caddy proxies /obsidian/websockify here).
+EXPOSE 3000 6901
