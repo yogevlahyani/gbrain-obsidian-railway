@@ -11,15 +11,16 @@
 		@blocked expression `{env.ORIGIN_SECRET} != "" && {http.request.header.X-Origin-Secret} != {env.ORIGIN_SECRET}`
 		respond @blocked 403
 
-		# GBrain API / admin / MCP (not the public notes site).
-		@gbrain path /admin* /mcp* /authorize* /token* /register* /revoke* /.well-known* /health /health/*
-		handle @gbrain {
-			reverse_proxy {$GBRAIN_UPSTREAM}
-		}
+		# Published vault (Quartz). Exact `/` goes to the site; GBrain keeps /admin, /mcp, …
+		redir / /notes/ 302
+		redir /notes /notes/ 308
 
-		# Quartz static site (published vault) is the default.
-		handle {
+		# Strip /notes so Quartz (served at its own /) sees normal paths.
+		handle_path /notes* {
 			reverse_proxy {$QUARTZ_UPSTREAM}
 		}
+
+		# GBrain: /admin, /mcp, /authorize, /token, /register, /revoke, /.well-known/*, /health.
+		reverse_proxy {$GBRAIN_UPSTREAM}
 	}
 }

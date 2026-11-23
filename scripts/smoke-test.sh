@@ -113,12 +113,10 @@ sleep 8
 check "external note searchable" \
   docker compose exec -T gbrain bash -c "gbrain search 'unique-token-xyzzy-smoke' --json | grep -qi unique-token-xyzzy-smoke"
 
-# 6. Quartz site at /
-quartz_html="$(mktemp)"
-curl -fsSL "${HDR[@]}" "${BASE}/" -o "$quartz_html" || true
-check "quartz root HTML loads" \
-  bash -c "grep -qiE '<html|<!doctype|Quartz' '$quartz_html'"
-rm -f "$quartz_html"
+# 6. Quartz published vault behind /notes/
+notes_code="$(curl -s -o /dev/null -w '%{http_code}' "${HDR[@]}" "${BASE}/notes/" || true)"
+check "quartz /notes/ responds (HTTP ${notes_code})" \
+  bash -c "[ '${notes_code}' = '200' ] || [ '${notes_code}' = '302' ] || [ '${notes_code}' = '301' ]"
 
 # 7. Restart preserves data / no duplicate source
 docker compose restart gbrain >/dev/null

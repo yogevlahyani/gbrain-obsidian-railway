@@ -1,4 +1,4 @@
-# Local test stack mirroring the Railway services.
+# Local test stack mirroring the four Railway services.
 # A bare git repo on a shared volume stands in for the private GitHub brain repo.
 # (Railway cannot share volumes between services; production uses GitHub over HTTPS.)
 
@@ -88,9 +88,9 @@ services:
     environment:
       BRAIN_REPO_URL: file:///repos/brain.git
       GITHUB_TOKEN: local-unused-token
-      PORT: "8080"
+      QUARTZ_BASE_URL: 127.0.0.1:18080/notes
       QUARTZ_REBUILD_INTERVAL: "60"
-      QUARTZ_BASE_URL: ""
+      PORT: "8080"
     volumes:
       - quartz_data:/data
       - git_data:/repos

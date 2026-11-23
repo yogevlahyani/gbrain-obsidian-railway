@@ -29,14 +29,14 @@ jobs:
             echo "GBrain already at $current"
           fi
 
-      - name: Bump caddy tag
+      - name: Bump caddy tag (edge + quartz image)
         run: |
           set -euo pipefail
-          file=caddy/Dockerfile
-          current="$(sed -n 's|^FROM caddy:\(.*\)$|\1|p' "$file" | head -1)"
-          # Hub API: newest stable semver without alpine/builder/windows/rc.
-          latest="$(curl -fsSL 'https://hub.docker.com/v2/repositories/library/caddy/tags?page_size=50&ordering=-last_updated' \
-            | python3 -c '
+          for file in caddy/Dockerfile quartz/Dockerfile; do
+            # quartz uses `FROM caddy:… AS caddybin`
+            current="$(sed -n 's|^FROM caddy:\([^ ]*\).*|\1|p' "$file" | head -1)"
+            latest="$(curl -fsSL 'https://hub.docker.com/v2/repositories/library/caddy/tags?page_size=50&ordering=-last_updated' \
+              | python3 -c '
 import json,sys,re
 d=json.load(sys.stdin)
 pat=re.compile(r"^\d+\.\d+\.\d+$")
@@ -45,16 +45,17 @@ for r in d.get("results",[]):
   if pat.match(n):
     print(n); break
 ')"
-          if [ -z "$latest" ]; then
-            echo "Could not resolve caddy tag; leaving $current"
-            exit 0
-          fi
-          if [ "$current" != "$latest" ]; then
-            sed -i "s|^FROM caddy:.*|FROM caddy:${latest}|" "$file"
-            echo "Updated caddy: $current -> $latest"
-          else
-            echo "Caddy already at $current"
-          fi
+            if [ -z "$latest" ]; then
+              echo "Could not resolve caddy tag; leaving $file ($current)"
+              continue
+            fi
+            if [ "$current" != "$latest" ]; then
+              sed -i "s|^FROM caddy:[^ ]*|FROM caddy:${latest}|" "$file"
+              echo "Updated $file: $current -> $latest"
+            else
+              echo "$file already at $current"
+            fi
+          done
 
       - name: Commit if changed
         run: |

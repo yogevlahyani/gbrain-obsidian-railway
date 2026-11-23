@@ -1,43 +1,46 @@
 # Deploy and Host GBrain + Quartz on Railway
 
-Self-hosted [GBrain](https://github.com/garrytan/gbrain) memory server with a [Quartz](https://quartz.jzhao.xyz/) site for your markdown vault. Edit in Obsidian (or anything) on your devices; both GBrain and Quartz sync the same **private GitHub repo**.
+Self-hosted [GBrain](https://github.com/garrytan/gbrain) memory server with a [Quartz](https://quartz.jzhao.xyz/) site for your markdown vault. Four services; markdown lives in a **private GitHub repo** (edit with Obsidian on your computer/phone; agents write through GBrain). Railway volumes are not shareable across services, and containers stay unprivileged.
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/gbrain-obsidian)
 
 ```
-Devices (Obsidian) ──git──► private GitHub brain repo
-                                ▲              │
-Claude / agents ──► Caddy ──► GBrain ◄─────────┘
+Claude / agents ──► Caddy ──► GBrain (Postgres + pgvector)
                      │
                      └──► Quartz (static site from the vault)
+                              ▲
+                     private GitHub brain repo
+                              ▲
+              Obsidian (desktop / mobile) via git
 ```
 
-Agent writes → GBrain commits/pushes → Quartz rebuilds on its pull interval.  
-Local Obsidian edits → you push → GBrain autopilot re-indexes; Quartz republishes.
+Agent writes → GBrain commits/pushes → Quartz rebuilds and GBrain re-indexes.  
+You edit in Obsidian locally → push to the same repo → Quartz + GBrain pick it up.  
+Conflicting pushes are parked by GBrain, never force-pushed.
 
 ## About Hosting GBrain + Quartz
 
-This template runs GBrain (HTTP + MCP), Quartz (published vault), Caddy (public edge), and Postgres with pgvector. The vault is not stored only on Railway volumes: GBrain and Quartz each sync a private GitHub repo over HTTPS.
+This template runs GBrain (HTTP + MCP), Quartz (published vault), Caddy (public edge), and Postgres with pgvector. The vault is not stored only on Railway volumes: GBrain and Quartz sync a private GitHub repo over HTTPS so edits stay durable. Use Obsidian (or any markdown editor) on your devices against that same repo.
 
 ## Why Deploy GBrain + Quartz on Railway
 
-Railway gives you private networking between the services, volumes for Postgres/GBrain/Quartz state, and a one-click public domain on Caddy. Keep editing in Obsidian on desktop/phone; the Railway stack is search/MCP + a public Quartz site.
+Railway gives you private networking between the four services, volumes for Postgres/GBrain/Quartz state, and a one-click public domain on Caddy. You keep the brain in your own GitHub repo and PAT.
 
 ## Common Use Cases
 
 - Personal or team second brain with Claude / MCP agents writing into markdown
-- Public or private Quartz site generated from the same git vault
+- A readable web site of the vault (Quartz) without streaming a desktop app
 - Self-hosted memory for agents with keyword or embedding search (optional Voyage/OpenAI keys)
 
 ## Dependencies for GBrain + Quartz
 
 ### Deployment Dependencies
 
-1. An **empty private GitHub repo** for the vault (e.g. `my-brain`).
+1. An **empty private GitHub repo** for the vault (e.g. `my-brain`), or an existing Obsidian vault repo.
 2. A **fine-grained GitHub PAT** with **Contents: Read and write** on that repo only.
 3. A Railway account.
 
-After deploy, set `BRAIN_REPO_URL` and `GITHUB_TOKEN` on **gbrain** and **quartz**. Optional: `GBRAIN_PUBLIC_URL` / `QUARTZ_BASE_URL` for OAuth/MCP and Quartz `baseUrl` — Railway’s caddy `*.up.railway.app` URL works until you add a custom domain.
+After deploy, set `BRAIN_REPO_URL` and `GITHUB_TOKEN` on **gbrain** and **quartz**. Optional: `GBRAIN_PUBLIC_URL` for OAuth/MCP — Railway’s caddy `*.up.railway.app` URL works until you add a custom domain.
 
 ### Service variables
 
@@ -68,11 +71,10 @@ After deploy, set `BRAIN_REPO_URL` and `GITHUB_TOKEN` on **gbrain** and **quartz
 | Variable | Value |
 |---|---|
 | `BRAIN_REPO_URL` | same as gbrain |
-| `GITHUB_TOKEN` | same PAT (Contents: Read is enough for Quartz) |
+| `GITHUB_TOKEN` | same PAT |
+| `QUARTZ_BASE_URL` | `${{caddy.RAILWAY_PUBLIC_DOMAIN}}/notes` (or `your.domain/notes`) |
+| `QUARTZ_REBUILD_INTERVAL` | `120` (seconds between git pull + rebuild) |
 | `PORT` | `8080` |
-| `QUARTZ_REBUILD_INTERVAL` | seconds between pull+rebuild (default `120`) |
-| `QUARTZ_BASE_URL` | optional host for Quartz `baseUrl` (e.g. `notes.example.com`) |
-| `QUARTZ_GIT_REF` | Quartz git ref (default `v5`) |
 
 **caddy** (the only public service)
 
@@ -85,7 +87,7 @@ After deploy, set `BRAIN_REPO_URL` and `GITHUB_TOKEN` on **gbrain** and **quartz
 
 Only **caddy** should have a public domain. GBrain/Quartz stay private.
 
-Public routes: `/` → Quartz site. `/admin`, `/mcp`, `/health`, OAuth paths → GBrain.
+Paths: `/` and `/notes/` → Quartz site; `/admin`, `/mcp`, `/health` → GBrain.
 
 ## Cloudflare (optional)
 
@@ -101,9 +103,9 @@ Leave `ORIGIN_SECRET` empty until Cloudflare is in front — otherwise the Railw
 Custom connector URL: `https://<domain>/mcp`  
 Log into `/admin` with the bootstrap token to manage OAuth clients.
 
-## Local Obsidian
+## Editing with Obsidian (your devices)
 
-Use Obsidian on your computer/phone against the same GitHub vault (Obsidian Git plugin or `git` CLI). Railway does not stream Obsidian — Quartz only publishes the markdown.
+Point Obsidian (desktop/mobile) at the same private GitHub vault (Obsidian Git plugin, or clone + push). Quartz rebuilds on its interval after you push; GBrain autopilot re-indexes the same commits.
 
 ## Moving an existing GBrain
 
@@ -112,10 +114,11 @@ On a machine with your old brain:
 ```bash
 # Write pages out as markdown into a checkout of the brain repo, then push.
 gbrain export --out /path/to/brain-checkout
+# or a full sync into a registered source path — see GBrain docs for your version.
 git -C /path/to/brain-checkout add -A && git commit -m "import existing brain" && git push
 ```
 
-After push, Railway gbrain autopilot pulls and indexes; Quartz rebuilds on its next interval.
+After push, Railway gbrain autopilot pulls and indexes; Quartz rebuilds on the next interval.
 
 ## Local test
 
@@ -126,12 +129,12 @@ docker compose up -d
 ./scripts/smoke-test.sh   # hits http://127.0.0.1:18080
 ```
 
-Local compose uses a bare git repo on a shared volume (`file:///repos/brain.git`) instead of GitHub, sets `GBRAIN_GIT_ALLOW_FILE_TRANSPORT=1`, and uses `sslmode=disable` on Postgres. Production always uses the private GitHub remote over HTTPS. On Apple Silicon, the gbrain service runs under `platform: linux/amd64` because releases ship `gbrain-linux-x64` only.
+Local compose uses a bare git repo on a shared volume (`file:///repos/brain.git`) instead of GitHub, sets `GBRAIN_GIT_ALLOW_FILE_TRANSPORT=1`, and uses `sslmode=disable` on Postgres. Production always uses the private GitHub remote over HTTPS and Railway’s TLS Postgres URL. On Apple Silicon, the gbrain service runs under `platform: linux/amd64` because releases ship `gbrain-linux-x64` only.
 
 ## Known limits
 
-- Quartz picks up vault changes on `QUARTZ_REBUILD_INTERVAL` (default ~2 minutes), not instantly.
-- GBrain skips hidden paths (including `.obsidian/`) by design — Quartz also excludes `.obsidian/` when copying content.
+- Vault edits reach Quartz/GBrain on the next rebuild/autopilot cycle (about 1–2 minutes here), not instantly.
+- GBrain skips hidden paths (including `.obsidian/`) by design — no extra ignore config needed.
 - `--public-url` must be `https://…` (GBrain refuses bare `http://`); local compose omits it.
 
 ## Docs vs this template
