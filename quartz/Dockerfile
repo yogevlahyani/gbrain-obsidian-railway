@@ -18,6 +18,6 @@ ENV PORT=8080 \
     QUARTZ_REBUILD_INTERVAL=120 \
     QUARTZ_GIT_REF=v5
 
-VOLUME /data
+# Railway volumes are declared in the template, not via Dockerfile VOLUME.
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
