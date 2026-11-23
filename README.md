@@ -82,8 +82,8 @@ After deploy, set `BRAIN_REPO_URL` and `GITHUB_TOKEN` on **gbrain** (Obsidian re
 |---|---|
 | `PORT` | Railway-injected |
 | `ORIGIN_SECRET` | `${{secret(48, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}}` |
-| `OBSIDIAN_UPSTREAM` | `obsidian.railway.internal:3000` |
-| `GBRAIN_UPSTREAM` | `gbrain.railway.internal:3131` |
+| `OBSIDIAN_UPSTREAM` | `${{obsidian.RAILWAY_PRIVATE_DOMAIN}}:3000` |
+| `GBRAIN_UPSTREAM` | `${{gbrain.RAILWAY_PRIVATE_DOMAIN}}:3131` |
 
 Healthcheck: only gbrain exposes `/health` (via caddy with the secret header). Do not put a Railway healthcheck on caddy — it will not send `X-Origin-Secret`.
 
