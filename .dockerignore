@@ -1,0 +1,9 @@
+.git
+.github
+*.md
+!starter-vault/**/*.md
+scripts
+compose.yaml
+.env
+.env.*
+.gbrain-src

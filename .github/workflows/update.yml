@@ -1,0 +1,92 @@
+name: Update pinned versions
+
+on:
+  schedule:
+    - cron: "17 9 * * 1" # weekly Monday 09:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bump GBrain VERSION
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current="$(tr -d '[:space:]' < gbrain/VERSION)"
+          latest="$(gh api repos/garrytan/gbrain/releases/latest --jq .tag_name)"
+          latest="${latest#v}"
+          if [ "$current" != "$latest" ]; then
+            printf '%s\n' "$latest" > gbrain/VERSION
+            echo "Updated gbrain/VERSION: $current -> $latest"
+          else
+            echo "GBrain already at $current"
+          fi
+
+      - name: Bump linuxserver/obsidian tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          file=obsidian/Dockerfile
+          current="$(sed -n 's|^FROM lscr.io/linuxserver/obsidian:\(.*\)$|\1|p' "$file" | head -1)"
+          # Prefer newest non-arch-specific version-* or v*-ls* tag from GHCR/hub via GitHub releases tags.
+          latest="$(gh api repos/linuxserver/docker-obsidian/tags --paginate --jq '.[].name' \
+            | grep -E '^v[0-9].*-ls[0-9]+$' \
+            | head -1)"
+          if [ -z "$latest" ]; then
+            echo "Could not resolve obsidian tag; leaving $current"
+            exit 0
+          fi
+          if [ "$current" != "$latest" ]; then
+            sed -i "s|^FROM lscr.io/linuxserver/obsidian:.*|FROM lscr.io/linuxserver/obsidian:${latest}|" "$file"
+            echo "Updated obsidian: $current -> $latest"
+          else
+            echo "Obsidian already at $current"
+          fi
+
+      - name: Bump caddy tag
+        run: |
+          set -euo pipefail
+          file=caddy/Dockerfile
+          current="$(sed -n 's|^FROM caddy:\(.*\)$|\1|p' "$file" | head -1)"
+          # Hub API: newest stable semver without alpine/builder/windows/rc.
+          latest="$(curl -fsSL 'https://hub.docker.com/v2/repositories/library/caddy/tags?page_size=50&ordering=-last_updated' \
+            | python3 -c '
+import json,sys,re
+d=json.load(sys.stdin)
+pat=re.compile(r"^\d+\.\d+\.\d+$")
+for r in d.get("results",[]):
+  n=r["name"]
+  if pat.match(n):
+    print(n); break
+')"
+          if [ -z "$latest" ]; then
+            echo "Could not resolve caddy tag; leaving $current"
+            exit 0
+          fi
+          if [ "$current" != "$latest" ]; then
+            sed -i "s|^FROM caddy:.*|FROM caddy:${latest}|" "$file"
+            echo "Updated caddy: $current -> $latest"
+          else
+            echo "Caddy already at $current"
+          fi
+
+      - name: Commit if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No version changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gbrain/VERSION obsidian/Dockerfile caddy/Dockerfile
+          git commit -m "chore: bump pinned image/binary versions"
+          git push

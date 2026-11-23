@@ -1,0 +1,127 @@
+# Local test stack mirroring the four Railway services.
+# A bare git repo on a shared volume stands in for the private GitHub brain repo.
+# (Railway cannot share volumes between services; production uses GitHub over HTTPS.)
+
+services:
+  git-init:
+    image: alpine/git:2.49.0
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ ! -f /repos/brain.git/HEAD ]; then
+          git init --bare /repos/brain.git
+          git -C /repos/brain.git symbolic-ref HEAD refs/heads/main
+          echo "initialized bare repo"
+        else
+          echo "bare repo already present"
+        fi
+    volumes:
+      - git_data:/repos
+
+  postgres:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: gbrain
+      POSTGRES_PASSWORD: gbrain
+      POSTGRES_DB: gbrain
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gbrain -d gbrain"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  gbrain:
+    # Prebuilt binary is linux-x64 only; emulate on Apple Silicon.
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: gbrain/Dockerfile
+      platforms:
+        - linux/amd64
+    depends_on:
+      postgres:
+        condition: service_healthy
+      git-init:
+        condition: service_completed_successfully
+    environment:
+      # sslmode=disable: GBrain requires TLS for non-local hosts by default; compose Postgres has none.
+      GBRAIN_DATABASE_URL: postgresql://gbrain:gbrain@postgres:5432/gbrain?sslmode=disable
+      GBRAIN_ADMIN_BOOTSTRAP_TOKEN: local-test-bootstrap-token-32chars-ok
+      GBRAIN_HTTP_TRUST_PROXY: "1"
+      # Local compose has no TLS; omit https public URL (see docs/mcp/DEPLOY.md).
+      GBRAIN_PUBLIC_URL: ""
+      BRAIN_REPO_URL: file:///repos/brain.git
+      # Required by entrypoint; unused for file:// remotes.
+      GITHUB_TOKEN: local-unused-token
+      GIT_AUTHOR_NAME: GBrain Local
+      GIT_AUTHOR_EMAIL: gbrain@localhost
+      # Escape hatch so GBrain's SSRF-safe git flags allow file:// remotes (local only).
+      GBRAIN_GIT_ALLOW_FILE_TRANSPORT: "1"
+      PORT: "3131"
+      GBRAIN_BIND: "0.0.0.0"
+      GBRAIN_AUTOPILOT_INTERVAL: "60"
+    volumes:
+      - gbrain_data:/data
+      - git_data:/repos
+    expose:
+      - "3131"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3131/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  obsidian:
+    build:
+      context: .
+      dockerfile: obsidian/Dockerfile
+    depends_on:
+      git-init:
+        condition: service_completed_successfully
+      gbrain:
+        condition: service_healthy
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: UTC
+      CUSTOM_USER: obsidian
+      PASSWORD: obsidian
+      SUBFOLDER: /obsidian/
+      BRAIN_REPO_URL: file:///repos/brain.git
+      GITHUB_TOKEN: local-unused-token
+      GIT_AUTHOR_NAME: Obsidian Local
+      GIT_AUTHOR_EMAIL: obsidian@localhost
+    volumes:
+      - obsidian_data:/config
+      - git_data:/repos
+    shm_size: "1gb"
+    expose:
+      - "3000"
+
+  caddy:
+    build:
+      context: .
+      dockerfile: caddy/Dockerfile
+    depends_on:
+      gbrain:
+        condition: service_healthy
+      obsidian:
+        condition: service_started
+    environment:
+      PORT: "18080"
+      ORIGIN_SECRET: local-origin-secret
+      OBSIDIAN_UPSTREAM: obsidian:3000
+      GBRAIN_UPSTREAM: gbrain:3131
+    ports:
+      - "18080:18080"
+
+volumes:
+  pg_data:
+  gbrain_data:
+  obsidian_data:
+  git_data:

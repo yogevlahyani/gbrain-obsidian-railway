@@ -1,0 +1,10 @@
+# Obsidian per-device / cache — keep plugins and settings, drop ephemeral UI state
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/workspaces.json
+.obsidian/graph.json
+.obsidian/cache
+.obsidian/*.cache
+.trash/
+.DS_Store
+*.tmp

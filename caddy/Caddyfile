@@ -1,0 +1,19 @@
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT} {
+	route {
+		@notcf not header X-Origin-Secret {$ORIGIN_SECRET}
+		respond @notcf 403
+
+		# Obsidian desktop stream (HTTP + websockets). Caddy reverse_proxy
+		# upgrades websockets by default.
+		reverse_proxy /obsidian* {$OBSIDIAN_UPSTREAM}
+
+		# GBrain owns the root: /admin, /mcp, /authorize, /token, /register,
+		# /revoke, /.well-known/*, /health.
+		reverse_proxy {$GBRAIN_UPSTREAM}
+	}
+}
