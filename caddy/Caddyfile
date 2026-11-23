@@ -14,9 +14,11 @@
 		# Bare Railway URL: GBrain has no `/` handler.
 		redir / /admin/ 302
 
-		# KasmVNC websocket. linuxserver nginx location SUBFOLDER+websockify proxies to
-		# :6901 but forwards the full /obsidian/websockify URI; Xvnc only serves /websockify
-		# → 404 iframes. Bypass nginx and strip the subfolder.
+		# /obsidian (no slash) makes relative iframe srcs resolve to /vnc and /files → 404.
+		redir /obsidian /obsidian/ 308
+
+		# KasmVNC websocket on :6901. Strip /obsidian so Xvnc sees /websockify
+		# (browsers send Origin + Sec-WebSocket-Protocol; bare curls 404 without them).
 		@obs_ws path /obsidian/websockify /obsidian/websockify/*
 		handle @obs_ws {
 			uri strip_prefix /obsidian
@@ -24,7 +26,6 @@
 		}
 
 		# Obsidian kclient UI (HTTP + socket.io) via nginx :3000.
-		# Caddy reverse_proxy upgrades websockets by default.
 		reverse_proxy /obsidian* {$OBSIDIAN_UPSTREAM}
 
 		# GBrain owns the root: /admin, /mcp, /authorize, /token, /register,
