@@ -20,7 +20,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/git-askpass.sh
 
 ENV GBRAIN_HOME=/data/gbrain
 WORKDIR /data
-VOLUME ["/data"]
+# Railway rejects Dockerfile VOLUME; mount /data via a Railway volume instead.
 EXPOSE 3131
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
